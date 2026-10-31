@@ -49,7 +49,14 @@
 
   <!-- ===== FILTROS: busca, setores e status (com checkbox), editar tabela e novo item ===== -->
   <div class="barra">
-    <input id="busca" class="campo-busca" type="search" placeholder="Buscar descrição...">
+    <!-- Busca por nome ou código de barras; o botão ao lado abre o leitor pela câmera.
+         Leitor USB/Bluetooth também funciona: ele "digita" o código e dá Enter. -->
+    <div class="busca-wrap">
+      <input id="busca" class="campo-busca" type="search" placeholder="Buscar por nome ou código de barras..." autocomplete="off">
+      <button type="button" id="busca-leitor" class="icone-btn" title="Ler código de barras com a câmera" aria-label="Ler código de barras com a câmera">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5v14M7 5v14M11 5v14M14 5v14M18 5v14M20.5 5v14"/></svg>
+      </button>
+    </div>
 
     <!-- Setores: as opções são montadas pelo JavaScript conforme os produtos da categoria -->
     <div class="multi" id="multi-setor">
@@ -112,14 +119,25 @@
 
       <!-- Dados do produto: escondidos ao editar um lote existente -->
       <div id="campos-produto">
-        <label>Descrição
+        <!-- Código de barras primeiro: ao bipar um produto já cadastrado, o resto é preenchido sozinho -->
+        <label>Código de barras
+          <span class="campo-leitor">
+            <input name="codigo" inputmode="numeric" autocomplete="off" placeholder="Bipe ou digite (opcional)">
+            <button type="button" id="form-leitor" class="icone-btn" title="Ler código de barras com a câmera" aria-label="Ler código de barras com a câmera">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5v14M7 5v14M11 5v14M14 5v14M18 5v14M20.5 5v14"/></svg>
+            </button>
+          </span>
+        </label>
+        <p id="aviso-codigo" class="aviso" hidden></p>
+
+        <!-- Obrigatórios: só descrição e setor -->
+        <label>Descrição <b class="obrig">*</b>
           <input name="descricao" list="sugestoes" required autocomplete="off">
           <datalist id="sugestoes"></datalist>
         </label>
-        <div class="duas">
-          <label>Setor <input name="setor" type="number" min="0"></label>
-          <label>Código de barras <input name="codigo"></label>
-        </div>
+        <label>Setor <b class="obrig">*</b>
+          <input name="setor" type="number" min="0" required>
+        </label>
       </div>
 
       <!-- Dados do lote -->
@@ -127,7 +145,7 @@
         <label>Validade <input name="validade" type="date"></label>
         <label>Quantidade <input name="quantidade" type="number" min="0"></label>
       </div>
-      <small class="dica">Deixe a validade vazia se o produto está sem estoque: ele continua cadastrado.</small>
+      <small class="dica"><b class="obrig">*</b> Obrigatórios: descrição e setor. Deixe a validade vazia se o produto está sem estoque: ele continua cadastrado.</small>
       <label>Próx. lote <input name="proximo_lote" type="date"></label>
 
       <p id="erro" class="erro" hidden></p>
@@ -162,8 +180,65 @@
     </form>
   </dialog>
 
-  <!-- ===== JS: nav.js, comum.js (lógica de todas as páginas) e, por último, o da página ===== -->
+  <!-- ===== CARTÃO DO ITEM: janela flutuante ao clicar numa linha (fecha no X, fora do cartão ou com Esc) ===== -->
+  <dialog id="modal-detalhe" class="cartao-dialog">
+    <div class="cartao">
+      <!-- Faixa colorida pelo status do item -->
+      <header class="cartao-topo" id="cartao-topo">
+        <button type="button" class="cartao-fechar" id="cartao-fechar" aria-label="Fechar">×</button>
+        <span class="cartao-status" id="cartao-status"></span>
+        <h2 id="cartao-descricao"></h2>
+        <p id="cartao-sub"></p>
+      </header>
+
+      <div class="cartao-corpo">
+        <!-- Foto do produto (arquivo fotos/<id>.jpg; reduzida no navegador antes de enviar) -->
+        <div class="foto-coluna">
+          <div class="foto-box" id="foto-box">
+            <img id="foto-img" alt="Foto do produto" hidden>
+            <span id="foto-vazia">Sem foto</span>
+          </div>
+          <input type="file" id="foto-arquivo" accept="image/*" hidden>
+          <button type="button" id="foto-trocar" class="sec pequeno">Adicionar foto</button>
+          <button type="button" id="foto-remover" class="sec pequeno" hidden>Remover foto</button>
+          <p id="foto-erro" class="erro" hidden></p>
+        </div>
+
+        <!-- Dados individuais do item, montados pelo JavaScript -->
+        <div class="cartao-dados" id="cartao-dados"></div>
+      </div>
+
+      <footer class="cartao-acoes">
+        <button type="button" class="sec perigo" data-cartao="excluir">Excluir</button>
+        <span class="espaco"></span>
+        <button type="button" class="sec" data-cartao="zerar">Zerar estoque</button>
+        <button type="button" class="prim" data-cartao="editar">Editar</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- ===== LEITOR DE CÓDIGO DE BARRAS: câmera, ou digitar o código na caixa ===== -->
+  <dialog id="modal-leitor">
+    <div class="leitor">
+      <h2>Ler código de barras</h2>
+      <div class="leitor-video-wrap">
+        <video id="leitor-video" playsinline muted></video>
+        <div class="leitor-mira"></div>
+      </div>
+      <p id="leitor-msg" class="dica">Aponte a câmera para o código de barras.</p>
+      <div class="leitor-manual">
+        <input id="leitor-manual" inputmode="numeric" autocomplete="off" placeholder="ou digite o código">
+        <button type="button" id="leitor-usar" class="sec">Usar</button>
+      </div>
+      <div class="acoes">
+        <button type="button" id="leitor-cancelar" class="sec">Cancelar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ===== JS: nav.js, leitor.js, comum.js (lógica de todas as páginas) e, por último, o da página ===== -->
   <script defer src="{{ url_for('static', path='js/nav.js') }}?v={{ versao }}"></script>
+  <script defer src="{{ url_for('static', path='js/leitor.js') }}?v={{ versao }}"></script>
   <script defer src="{{ url_for('static', path='js/comum.js') }}?v={{ versao }}"></script>
   {% block js %}{% endblock %}
 </body>

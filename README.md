@@ -20,8 +20,8 @@ uvicorn main:app --reload
 
 O banco padrão é SQLite (`vencimentos.db`, criado na raiz). As três categorias são criadas sozinhas na primeira execução.
 
-> **Atualizando de uma versão anterior:** o banco mudou (faixas por categoria e validade opcional).
-> Apague o arquivo `vencimentos.db` e rode `python seed.py` de novo. O sistema avisa se encontrar um banco antigo.
+> **Atualizando:** esta versão **não muda o banco**; o `vencimentos.db` da versão anterior continua valendo.
+> (Se vier de uma versão bem antiga, o sistema avisa e basta apagar o `vencimentos.db` e rodar `python seed.py`.)
 >
 > Se a tela aparecer sem estilo ou com tudo zerado depois de atualizar, o navegador está usando CSS/JS antigos do cache:
 > apague a pasta antiga antes de extrair o zip novo e atualize a página com **Ctrl+F5**.
@@ -30,11 +30,41 @@ O banco padrão é SQLite (`vencimentos.db`, criado na raiz). As três categoria
 ## Como usar a tela
 
 - **Cartões do topo:** quantidade de lotes em cada status, com a faixa de dias da categoria. Clicar num cartão filtra por aquele status.
-- **Clicar numa linha:** expande as informações individuais do item (código de barras, categoria, setor, quantidade, datas e status).
+- **Clicar numa linha:** abre o **cartão do item** flutuando na tela, com foto, código de barras, setor, quantidade, datas e status. Fecha no **×**, clicando fora do cartão ou com **Esc**. Do cartão também dá para Editar, Zerar estoque ou Excluir.
+- **Foto do produto:** no cartão, **Adicionar foto / Trocar foto / Remover foto**. No celular abre a câmera ou a galeria.
+- **Código de barras:** o botão de barras ao lado da busca (e no formulário de novo item) abre o leitor.
+  - **Busca:** achou 1 produto, abre o cartão dele; não achou, oferece cadastrar já com o código preenchido.
+  - **Novo item:** se o código já é de um produto cadastrado, descrição e setor são preenchidos e travados, e o que você lança é um **novo lote** desse produto.
+- **Campos obrigatórios** ao criar: só **descrição** e **setor**. Código, validade, quantidade e próx. lote são opcionais.
 - **Setores e Status:** listas com caixas de seleção; dá para marcar mais de um de cada vez.
 - **⚙ Editar tabela:** define os dias de cada status **da categoria atual** (cada página tem os seus). A janela mostra como ficam os intervalos enquanto você digita.
 - **⋮ (três pontinhos):** Editar, Zerar estoque ou Excluir o lote.
 - **Validade vazia:** o produto aparece como `SEM VALIDADE`. Serve para item sem estoque que continua cadastrado: "Zerar estoque" faz isso em um clique, e um novo lote pode ser lançado depois.
+
+## Leitor de código de barras
+
+| Forma                         | Como funciona                                                                 |
+|-------------------------------|-------------------------------------------------------------------------------|
+| Leitor USB / Bluetooth        | Funciona sozinho: ele "digita" o código e dá Enter. Basta o cursor estar na busca ou no campo do código. |
+| Câmera (Chrome/Edge, celular) | Usa o `BarcodeDetector` do navegador, sem internet.                           |
+| Câmera (navegador sem isso)   | Baixa a biblioteca ZXing da internet na primeira vez (precisa de conexão).     |
+| Digitar                       | A janela do leitor sempre tem uma caixa para digitar o código.                |
+
+**A câmera só abre em endereço seguro:** `https://` ou `http://localhost`. Abrindo o sistema no celular por
+`http://192.168.x.x:8000` a câmera é bloqueada pelo navegador; nesse caso use HTTPS (um proxy como Caddy ou
+nginx com certificado, ou um túnel) ou um leitor USB/Bluetooth.
+
+## Fotos dos produtos: é viável?
+
+Sim. Com ~4.000 produtos o peso é pequeno:
+
+- Cada foto é **reduzida no navegador para no máximo 800 px (JPEG)** antes de enviar: algo entre 30 e 100 KB.
+- 4.000 fotos x 30 a 100 KB = **cerca de 120 a 400 MB** em disco. Nada de relevante para um servidor ou PC comum.
+- As fotos ficam como **arquivos na pasta `fotos/`** (`fotos/<id do produto>.jpg`), **não dentro do banco**. O banco não cresce e a tabela não fica mais lenta.
+- A foto só é carregada **quando o cartão abre**, então a tabela continua leve.
+- Uma foto por **produto** (vale para todos os lotes dele). Limite de 2 MB por envio.
+- **Backup:** copie a pasta `fotos/` junto com o `vencimentos.db`.
+- Cadastrar 4.000 fotos à mão dá trabalho; o caminho natural é ir tirando a foto quando o produto passar pelo cartão. Importar imagens prontas por código de barras (catálogos públicos) é possível no futuro, mas depende de internet e de verificar a licença das imagens.
 
 ## Estrutura
 
@@ -46,6 +76,7 @@ controle_vencimento/
 ├── seed.py              # dados de exemplo
 ├── requirements.txt
 ├── README.md
+├── fotos/               # criada sozinha: fotos dos produtos (<id>.jpg); entra no backup
 ├── templates/
 │   ├── base.html        # layout comum: topo, filtros, tabela, menu e janelas
 │   ├── nav.html         # abas de navegação
@@ -58,7 +89,8 @@ controle_vencimento/
     │   ├── nav.css
     │   └── alimenticios.css  padaria.css  limpeza.css   # cor de destaque de cada página
     └── js/
-        ├── comum.js     # lógica comum: API, filtros, tabela, menu, formulários
+        ├── comum.js     # lógica comum: API, filtros, tabela, cartão, fotos, formulários
+        ├── leitor.js    # leitor de código de barras (câmera / digitar)
         ├── nav.js       # marca a aba ativa
         └── alimenticios.js  padaria.js  limpeza.js      # cada um chama iniciarPagina("...")
 ```
@@ -73,6 +105,7 @@ controle_vencimento/
 | DIAS RESTANTES, STATUS            | calculados na hora (`main.py`)                       |
 | Contadores do topo                | `GET /resumo`                                        |
 | Tabela com filtros                | `GET /alertas`                                       |
+| (novo) foto do produto            | arquivo `fotos/<id>.jpg`                             |
 
 ## Regra de status
 
@@ -94,11 +127,14 @@ Regra: `em risco < à vencer < organizar`, todos inteiros e não negativos.
 
 | Método   | Rota                          | Descrição                                                                  |
 |----------|-------------------------------|----------------------------------------------------------------------------|
-| GET      | `/alertas`                    | Linhas da tabela. Filtros: `categoria`, `setor` e `status` (repetíveis), `busca` |
+| GET      | `/alertas`                    | Linhas da tabela. Filtros: `categoria`, `setor` e `status` (repetíveis), `busca` (nome ou código) |
 | GET      | `/resumo`                     | Cartões do topo (`?categoria=`)                                            |
 | GET      | `/categorias`                 | Lista as categorias com suas faixas                                        |
 | PUT      | `/categorias/{id}/faixas`     | Salva os dias de cada status da categoria                                  |
-| GET/POST | `/produtos`                   | Listar (`busca`, `categoria_id`) / criar produto                           |
+| GET/POST | `/produtos`                   | Listar (`busca` por nome ou código, `codigo` exato, `categoria_id`) / criar (só `descricao` e `setor` obrigatórios) |
+| PUT      | `/produtos/{id}/foto`         | Envia a foto (corpo = JPEG, até 2 MB)                                      |
+| DELETE   | `/produtos/{id}/foto`         | Remove a foto                                                              |
+| GET      | `/fotos/{id}.jpg`             | A foto (arquivo estático)                                                  |
 | POST     | `/lotes`                      | Criar lote (validade opcional)                                             |
 | PATCH    | `/lotes/{id}`                 | Editar validade, quantidade, próx. lote (`validade: null` limpa a data)    |
 | DELETE   | `/lotes/{id}`                 | Excluir lote                                                               |

@@ -169,7 +169,7 @@ button.sec:hover { background: #eef1f4; }
 }
 
 .campo-busca {
-  width: 260px;
+  width: 300px;
   padding-left: 32px;
   background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7785' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 10px center;
 }
@@ -211,7 +211,7 @@ button.sec:hover { background: #eef1f4; }
 .multi-painel .status { min-width: 0; }
 .multi-vazio { padding: 8px; font-size: 12px; color: var(--texto-suave); }
 
-/* ===== TABELA (linhas, detalhe ao clicar e etiquetas de status) ===== */
+/* ===== TABELA (linhas e etiquetas de status) ===== */
 .tabela-wrap { flex: 1; overflow: auto; padding: 14px 20px; }
 
 table {
@@ -246,25 +246,7 @@ td.desc { width: 100%; min-width: 240px; white-space: normal; }
 
 tr.linha { cursor: pointer; }
 tr.linha:hover td { background: #f5f9fe; }
-tr.linha.aberta td { background: #eef5fc; }
 tr.linha:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: -2px; }
-
-.seta {
-  display: inline-block;
-  width: 16px;
-  color: #98a4b1;
-  font-weight: 700;
-  transition: transform .15s;
-}
-tr.aberta .seta { transform: rotate(90deg); color: var(--cor-primaria); }
-
-/* Linha extra com as informações individuais do item */
-tr.detalhe td { padding: 14px 16px 16px 40px; background: #f8fafc; white-space: normal; }
-.detalhe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px 20px; }
-.detalhe-grid .largo { grid-column: 1 / -1; }
-.dl { display: block; margin-bottom: 2px; font-size: 10.5px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--texto-suave); }
-.dv { font-size: 13.5px; }
-.detalhe-id { margin: 12px 0 0; font-size: 11px; color: #9aa5b1; }
 
 /* Etiqueta colorida de status */
 .status {
@@ -359,3 +341,119 @@ dialog input { width: 100%; min-width: 0; }
 }
 .faixas-previa li { display: flex; align-items: center; gap: 10px; }
 .faixas-previa .status { min-width: 96px; }
+
+/* ===== BUSCA E CAMPOS COM LEITOR DE CÓDIGO DE BARRAS ===== */
+.busca-wrap { display: flex; align-items: center; gap: 6px; }
+
+.icone-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: #41505f;
+  background: #fff;
+  border: 1px solid #c5ccd4;
+  border-radius: 6px;
+}
+.icone-btn svg { width: 19px; height: 19px; }
+.icone-btn:hover { color: var(--cor-destaque); border-color: var(--cor-destaque); background: #f4faf5; }
+
+.campo-leitor { display: flex; gap: 6px; }
+.campo-leitor input { flex: 1; }
+
+.obrig { color: #c0392b; }
+.aviso {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #1f5f2e;
+  background: #e8f6ea;
+  border: 1px solid #bfe3c5;
+  border-radius: 6px;
+}
+dialog input[readonly] { background: #f1f4f7; color: #556270; }
+
+/* ===== LEITOR (janela com a câmera) ===== */
+.leitor { display: flex; flex-direction: column; gap: 12px; padding: 22px; }
+.leitor h2 { margin: 0; font-size: 18px; }
+.leitor-video-wrap {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #0b1220;
+  border-radius: 10px;
+}
+.leitor-video-wrap video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.leitor-mira {
+  position: absolute;
+  left: 10%; right: 10%; top: 50%;
+  height: 2px;
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  pointer-events: none;
+}
+.leitor-manual { display: flex; gap: 8px; }
+.leitor-manual input { flex: 1; }
+
+/* ===== CARTÃO DO ITEM (janela flutuante ao clicar numa linha) ===== */
+.cartao-dialog { width: min(640px, 94vw); overflow: hidden; animation: cartao-entra .18s ease-out; }
+@keyframes cartao-entra {
+  from { opacity: 0; transform: translateY(14px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+.cartao { display: flex; flex-direction: column; }
+
+/* Faixa de cima: a cor vem da classe s-<STATUS> (as mesmas das etiquetas) */
+.cartao-topo { position: relative; padding: 20px 56px 18px 24px; background: #334155; color: #fff; border: 0; }
+.cartao-topo.s-SEM_VALIDADE { background: #64748b; color: #fff; border: 0; }
+.cartao-status { display: block; margin-bottom: 6px; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; opacity: .85; }
+.cartao-topo h2 { margin: 0; font-size: 20px; line-height: 1.25; }
+.cartao-topo p { margin: 6px 0 0; font-size: 12.5px; opacity: .85; }
+.cartao-fechar {
+  position: absolute; top: 12px; right: 12px;
+  width: 34px; height: 34px;
+  padding: 0;
+  font-size: 24px; line-height: 1;
+  color: inherit;
+  background: rgba(0, 0, 0, .14);
+  border: none;
+  border-radius: 50%;
+}
+.cartao-fechar:hover { background: rgba(0, 0, 0, .26); }
+
+.cartao-corpo { display: flex; gap: 22px; padding: 20px 24px; }
+
+/* Foto do produto */
+.foto-coluna { display: flex; flex: none; flex-direction: column; gap: 8px; width: 150px; }
+.foto-box {
+  display: grid; place-items: center;
+  width: 150px; height: 150px;
+  overflow: hidden;
+  font-size: 12px; color: #9aa5b1;
+  background: #f4f6f9;
+  border: 1px dashed #c5ccd4;
+  border-radius: 12px;
+}
+.foto-box.tem-foto { border-style: solid; border-color: var(--borda); background: #fff; }
+.foto-box img { width: 100%; height: 100%; object-fit: contain; }
+button.pequeno { padding: 5px 10px; font-size: 12px; }
+
+/* Dados do item */
+.cartao-dados { display: grid; flex: 1; grid-template-columns: 1fr 1fr; gap: 14px 18px; align-content: start; min-width: 0; }
+.cartao-dados .largo { grid-column: 1 / -1; }
+.dl { display: block; margin-bottom: 2px; font-size: 10.5px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--texto-suave); }
+.dv { font-size: 14px; word-break: break-word; }
+.dv.grande { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.cartao-id { margin: 0; font-size: 11px; color: #9aa5b1; }
+
+.cartao-acoes { display: flex; align-items: center; gap: 8px; padding: 14px 24px; background: #f8fafc; border-top: 1px solid var(--borda); }
+.cartao-acoes .perigo { color: #b42318; }
+.cartao-acoes .perigo:hover { background: #fdecea; }
+
+@media (max-width: 560px) {
+  .cartao-corpo { flex-direction: column; }
+  .foto-coluna { width: 100%; }
+  .foto-box { width: 100%; height: 170px; }
+}

@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -61,6 +61,13 @@ class StaticSemCache(StaticFiles):
 
 app = FastAPI(title="Controle de Vencimento")
 app.mount("/static", StaticSemCache(directory=BASE_DIR / "static"), name="static")
+
+# Fotos dos produtos: uma por produto, no arquivo fotos/<id do produto>.jpg.
+# O banco não guarda imagens (só os arquivos ficam na pasta), então ele continua leve.
+FOTOS_DIR = BASE_DIR / "fotos"
+FOTOS_DIR.mkdir(exist_ok=True)
+FOTO_MAX_BYTES = 2_000_000
+app.mount("/fotos", StaticSemCache(directory=FOTOS_DIR), name="fotos")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 # Número que muda quando qualquer arquivo de static/ muda. Vai na URL (?v=...) dos
@@ -117,8 +124,8 @@ def buscar_lotes(db: Session, categoria: str | None, setores: list[int] | None,
         q = q.where(Categoria.nome.ilike(categoria))
     if setores:
         q = q.where(Produto.setor.in_(setores))
-    if busca:
-        q = q.where(Produto.descricao.ilike(f"%{busca}%"))
+    if busca:   # procura na descrição e no código de barras
+        q = q.where(or_(Produto.descricao.ilike(f"%{busca}%"), Produto.codigo.ilike(f"%{busca}%")))
     return list(db.scalars(q).all())
 
 
@@ -168,11 +175,14 @@ def salvar_faixas(categoria_id: int, dados: FaixasIn, db: Session = Depends(get_
 
 # ========================================================= API: PRODUTOS
 @app.get("/produtos", response_model=list[ProdutoOut], tags=["produtos"])
-def listar_produtos(busca: str | None = None, categoria_id: int | None = None,
-                    db: Session = Depends(get_db)):
+def listar_produtos(busca: str | None = None, codigo: str | None = None,
+                    categoria_id: int | None = None, db: Session = Depends(get_db)):
+    """`busca` procura na descrição e no código; `codigo` é a busca exata por código de barras."""
     q = select(Produto).order_by(Produto.descricao)
     if busca:
-        q = q.where(Produto.descricao.ilike(f"%{busca}%"))
+        q = q.where(or_(Produto.descricao.ilike(f"%{busca}%"), Produto.codigo.ilike(f"%{busca}%")))
+    if codigo:
+        q = q.where(Produto.codigo == codigo)
     if categoria_id:
         q = q.where(Produto.categoria_id == categoria_id)
     return db.scalars(q).all()
@@ -186,6 +196,26 @@ def criar_produto(dados: ProdutoIn, db: Session = Depends(get_db)):
     db.add(produto)
     db.commit()
     return produto
+
+
+# ====================================================== API: FOTO DO PRODUTO
+@app.put("/produtos/{produto_id}/foto", status_code=204, tags=["produtos"])
+async def salvar_foto(produto_id: int, request: Request, db: Session = Depends(get_db)):
+    """Recebe a foto (JPEG) no corpo da requisição. O navegador já reduz a imagem
+    (800 px, uns 50 a 100 KB) antes de enviar."""
+    if not db.get(Produto, produto_id):
+        raise HTTPException(404, "Produto não encontrado")
+    dados = await request.body()
+    if len(dados) > FOTO_MAX_BYTES:
+        raise HTTPException(413, "Foto muito grande (máximo 2 MB)")
+    if not dados.startswith(b"\xff\xd8\xff"):
+        raise HTTPException(415, "A foto precisa ser um arquivo JPEG")
+    (FOTOS_DIR / f"{produto_id}.jpg").write_bytes(dados)
+
+
+@app.delete("/produtos/{produto_id}/foto", status_code=204, tags=["produtos"])
+def remover_foto(produto_id: int):
+    (FOTOS_DIR / f"{produto_id}.jpg").unlink(missing_ok=True)
 
 
 # ========================================================== API: LOTES

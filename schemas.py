@@ -42,9 +42,10 @@ class FaixasIn(BaseModel):
 
 # ---------------------------------------------------------------- produtos
 class ProdutoIn(BaseModel):
+    """Ao cadastrar um produto, só a descrição e o setor são obrigatórios."""
     categoria_id: int
-    setor: int | None = None
-    codigo: str | None = None
+    setor: int
+    codigo: str | None = None          # código de barras (opcional)
     descricao: str
 
     @field_validator("descricao")
@@ -55,10 +56,19 @@ class ProdutoIn(BaseModel):
             raise ValueError("Informe a descrição")
         return v
 
+    @field_validator("codigo")
+    @classmethod
+    def limpar_codigo(cls, v: str | None) -> str | None:
+        return (v or "").strip() or None
 
-class ProdutoOut(ProdutoIn):
+
+class ProdutoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    categoria_id: int
+    setor: int | None
+    codigo: str | None
+    descricao: str
 
 
 # ------------------------------------------------------------------- lotes

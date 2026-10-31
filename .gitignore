@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 *.db
 .env
+
+# fotos dos produtos (dados do sistema; faça backup junto com o banco)
+fotos/
