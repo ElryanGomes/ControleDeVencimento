@@ -1,0 +1,12 @@
+{# Página de Limpeza: o layout vem de base.html; aqui só entram o título, o css e o js desta página #}
+{% extends "base.html" %}
+
+{% block titulo %}Limpeza - Alerta de Vencimento{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{{ url_for('static', path='css/limpeza.css') }}?v={{ versao }}">
+{% endblock %}
+
+{% block js %}
+  <script defer src="{{ url_for('static', path='js/limpeza.js') }}?v={{ versao }}"></script>
+{% endblock %}

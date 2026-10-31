@@ -1,0 +1,12 @@
+{# Página de Padaria: o layout vem de base.html; aqui só entram o título, o css e o js desta página #}
+{% extends "base.html" %}
+
+{% block titulo %}Padaria - Alerta de Vencimento{% endblock %}
+
+{% block css %}
+  <link rel="stylesheet" href="{{ url_for('static', path='css/padaria.css') }}?v={{ versao }}">
+{% endblock %}
+
+{% block js %}
+  <script defer src="{{ url_for('static', path='js/padaria.js') }}?v={{ versao }}"></script>
+{% endblock %}

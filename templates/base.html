@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Alerta de Vencimento{% endblock %}</title>
+
+  <!-- CSS comum a todas as páginas, depois o do nav, depois o da página (que define a cor de destaque) -->
+  <!-- ?v= muda a cada atualização dos arquivos, para o navegador nunca usar CSS/JS velho do cache -->
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v={{ versao }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/nav.css') }}?v={{ versao }}">
+  {% block css %}{% endblock %}
+</head>
+<body>
+
+  <!-- ===== TOPO: marca, data e cartões de status (clicar num cartão filtra a tabela) ===== -->
+  <header class="topo">
+    <div class="topo-barra">
+      <div class="marca">
+        <span class="marca-icone" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect>
+            <path d="M8 2.5v4M16 2.5v4M3 9.5h18"></path>
+            <path d="m9 15 2.2 2.2L15.5 13"></path>
+          </svg>
+        </span>
+        <div>
+          <h1>Alerta de Vencimento</h1>
+          <p>{{ nome }} · controle de validade</p>
+        </div>
+      </div>
+
+      <div class="data-card">
+        <span class="data-semana" id="hoje-semana"></span>
+        <strong id="hoje" data-iso="{{ hoje.isoformat() }}">{{ hoje.strftime("%d/%m/%Y") }}</strong>
+      </div>
+    </div>
+
+    <div class="cards">
+      {% for c in contadores %}
+      <button type="button" class="card cor-{{ c.cor }}" data-status="{{ c.status }}">
+        <span class="card-topo"><i class="bola"></i>{{ c.status }}</span>
+        <strong class="card-num" id="c-{{ c.chave }}">0</strong>
+        <span class="card-sub" id="f-{{ c.chave }}"></span>
+      </button>
+      {% endfor %}
+    </div>
+  </header>
+
+  <!-- ===== FILTROS: busca, setores e status (com checkbox), editar tabela e novo item ===== -->
+  <div class="barra">
+    <input id="busca" class="campo-busca" type="search" placeholder="Buscar descrição...">
+
+    <!-- Setores: as opções são montadas pelo JavaScript conforme os produtos da categoria -->
+    <div class="multi" id="multi-setor">
+      <button type="button" class="multi-btn">Setores <span class="multi-n"></span></button>
+      <div class="multi-painel" id="painel-setor" hidden></div>
+    </div>
+
+    <!-- Status -->
+    <div class="multi" id="multi-status">
+      <button type="button" class="multi-btn">Status <span class="multi-n"></span></button>
+      <div class="multi-painel" id="painel-status" hidden>
+        {% for s in statuses %}
+        <label><input type="checkbox" value="{{ s.valor }}"><span class="status {{ s.classe }}">{{ s.valor }}</span></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <button type="button" id="limpar" class="sec">Limpar filtros</button>
+    <button type="button" id="editar-tabela" class="sec" title="Definir os dias de cada status desta categoria">⚙ Editar tabela</button>
+
+    <span class="espaco"></span>
+    <span id="total" class="total"></span>
+    <button type="button" id="novo" class="prim">+ Novo item</button>
+  </div>
+
+  <!-- ===== TABELA: as linhas (e os detalhes ao clicar) são montados pelo JavaScript ===== -->
+  <main class="tabela-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="c">SETOR</th>
+          <th>DESCRIÇÃO</th>
+          <th class="c">PRÓX. LOTE</th>
+          <th class="c">QUANTIDADE</th>
+          <th class="c">VALIDADE</th>
+          <th class="c">DIAS RESTANTES</th>
+          <th class="c">STATUS</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="linhas"></tbody>
+    </table>
+    <p id="vazio" class="vazio" hidden>Nenhum item encontrado.</p>
+  </main>
+
+  <!-- ===== NAV: abas para trocar de categoria (arquivo templates/nav.html) ===== -->
+  {% include "nav.html" %}
+
+  <!-- ===== MENU DOS 3 PONTINHOS: aparece junto ao botão da linha ===== -->
+  <div id="menu-linha" class="menu-flutuante" role="menu" hidden>
+    <button type="button" role="menuitem" data-acao="editar">Editar</button>
+    <button type="button" role="menuitem" data-acao="zerar">Zerar estoque</button>
+    <button type="button" role="menuitem" data-acao="excluir" class="perigo">Excluir</button>
+  </div>
+
+  <!-- ===== MODAL: formulário de novo item / editar lote ===== -->
+  <dialog id="modal">
+    <form method="dialog" id="form">
+      <h2 id="modal-titulo">Novo item</h2>
+
+      <!-- Dados do produto: escondidos ao editar um lote existente -->
+      <div id="campos-produto">
+        <label>Descrição
+          <input name="descricao" list="sugestoes" required autocomplete="off">
+          <datalist id="sugestoes"></datalist>
+        </label>
+        <div class="duas">
+          <label>Setor <input name="setor" type="number" min="0"></label>
+          <label>Código de barras <input name="codigo"></label>
+        </div>
+      </div>
+
+      <!-- Dados do lote -->
+      <div class="duas">
+        <label>Validade <input name="validade" type="date"></label>
+        <label>Quantidade <input name="quantidade" type="number" min="0"></label>
+      </div>
+      <small class="dica">Deixe a validade vazia se o produto está sem estoque: ele continua cadastrado.</small>
+      <label>Próx. lote <input name="proximo_lote" type="date"></label>
+
+      <p id="erro" class="erro" hidden></p>
+
+      <div class="acoes">
+        <button type="button" id="cancelar" class="sec">Cancelar</button>
+        <button type="submit" class="prim">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== MODAL: editar tabela (dias de cada status desta categoria) ===== -->
+  <dialog id="modal-faixas">
+    <form method="dialog" id="form-faixas">
+      <h2>Editar tabela · <span id="faixas-categoria"></span></h2>
+      <p class="dica">Defina até quantos dias restantes vale cada status. Acima do último limite o item fica como LONGE; datas já passadas ficam como VENCIDO.</p>
+
+      <div class="tres">
+        <label>Em risco até <input name="em_risco" type="number" min="0" step="1" required></label>
+        <label>À vencer até <input name="a_vencer" type="number" min="1" step="1" required></label>
+        <label>Organizar até <input name="organizar" type="number" min="2" step="1" required></label>
+      </div>
+
+      <ul class="faixas-previa" id="faixas-previa"></ul>
+
+      <p id="erro-faixas" class="erro" hidden></p>
+
+      <div class="acoes">
+        <button type="button" id="cancelar-faixas" class="sec">Cancelar</button>
+        <button type="submit" id="salvar-faixas" class="prim">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== JS: nav.js, comum.js (lógica de todas as páginas) e, por último, o da página ===== -->
+  <script defer src="{{ url_for('static', path='js/nav.js') }}?v={{ versao }}"></script>
+  <script defer src="{{ url_for('static', path='js/comum.js') }}?v={{ versao }}"></script>
+  {% block js %}{% endblock %}
+</body>
+</html>

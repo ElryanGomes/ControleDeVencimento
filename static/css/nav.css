@@ -1,0 +1,28 @@
+/* ===== NAV (abas para trocar entre Alimentícios, Padaria e Limpeza) ===== */
+
+/* Barra das abas, no rodapé da tela como na planilha */
+.abas {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 14px;
+  background: #fff;
+  border-top: 1px solid var(--borda);
+}
+
+/* Cada aba é um link */
+.aba {
+  padding: 10px 16px;
+  border-bottom: 3px solid transparent;
+  text-decoration: none;
+  color: var(--texto-suave);
+  font-weight: 500;
+}
+.aba:hover { background: #f1f4f7; color: var(--texto); }
+
+/* Aba da página atual (a cor vem de --cor-destaque, definida em cada página) */
+.aba.ativa {
+  color: var(--cor-destaque);
+  font-weight: 700;
+  border-bottom-color: var(--cor-destaque);
+}

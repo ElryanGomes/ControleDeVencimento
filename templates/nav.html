@@ -1,0 +1,6 @@
+<!-- Abas de navegação. A aba da página atual é marcada por static/js/nav.js -->
+<nav class="abas" id="abas">
+  {% for p in paginas %}
+  <a class="aba" href="/{{ p.slug }}" data-pagina="{{ p.slug }}">{{ p.nome }}</a>
+  {% endfor %}
+</nav>
